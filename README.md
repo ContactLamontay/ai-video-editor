@@ -26,7 +26,7 @@ script records its path (`brand_file` in `~/.ai-video-editor/config.json`) and e
 no brand data, so all clients can share it. Keep your brand files in `Content/Clients/brand-files/`.
 
 ## Publish
-1. Working copy: C:SERSJOSHPROJECTSI-VIDEO-EDITOR (KEPT OUT OF ICLOUD).
+1. Working copy: C:/Users/Josh/Projects/ai-video-editor (kept out of iCloud).
 2. Private GitHub repo: https://github.com/ContactLamontay/ai-video-editor
 
 ## Ship an update
