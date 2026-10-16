@@ -9,8 +9,7 @@
 3. **Their AI.**
    - Claude: each editor needs a Claude plan that includes Claude Code, and the desktop app.
    - Codex: each editor needs a ChatGPT plan that includes Codex, and the Codex app or CLI.
-4. **Repo access.** Add each editor (or the brand's GitHub org) to this private repo. Remove them if the brand stops
-   paying.
+4. **Repo.** The repo is public, so editors install it without an invite. Never put brand data in it.
 5. **ElevenLabs.** The brand creates its own ElevenLabs account and gives the key to its editors.
 6. **Send the guide**: `EDITOR-GUIDE-CLAUDE.md` or `EDITOR-GUIDE-CODEX.md` . Offer a
    15-minute call for the first editor's setup.

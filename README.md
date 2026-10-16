@@ -27,7 +27,7 @@ no brand data, so all clients can share it. Keep your brand files in `Content/Cl
 
 ## Publish
 1. Working copy: C:/Users/Josh/Projects/ai-video-editor (kept out of iCloud).
-2. Private GitHub repo: https://github.com/ContactLamontay/ai-video-editor
+2. Public GitHub repo: https://github.com/ContactLamontay/ai-video-editor
 
 ## Ship an update
 Change files, bump `version` in `plugin/.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`, push.

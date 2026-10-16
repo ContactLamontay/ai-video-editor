@@ -6,7 +6,7 @@ About 15 minutes, once per computer. Works on Windows and Mac.
 - A **ChatGPT plan that includes Codex**, and the **Codex app or CLI** installed and signed in.
 - **Google Drive for Desktop** (https://www.google.com/drive/download/), signed in with your company Google account.
   Check you can see the footage folder in File Explorer / Finder.
-- **Git** and access to the GitHub repo (you'll get an invite email).
+- **Git** installed (https://git-scm.com/downloads).
 - The **ElevenLabs API key** from your manager. You'll paste it into the setup script, never into a chat.
 
 ## 1. Download and install
