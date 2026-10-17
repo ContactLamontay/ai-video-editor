@@ -1,11 +1,12 @@
 # AI Video Editor - one-time setup for a Windows computer.
 #   powershell -NoProfile -ExecutionPolicy Bypass -File "<this file>"          asks a few questions (defaults filled in)
 #   powershell -NoProfile -ExecutionPolicy Bypass -File "<this file>" -Auto    asks nothing - the AI runs this one
-# Installs Python, FFmpeg and Google Drive for Desktop if missing, finds the footage folder by searching Google Drive
-# for brand.md, reads ai-video-editor.json next to it (ElevenLabs key, folders), checks everything.
+#   ... -Auto -Footage "Bracelet"     the footage folder's name in Google Drive (asked once by the AI)
+# Installs Python, FFmpeg and Google Drive for Desktop if missing, finds the footage folder by name in Google Drive,
+# picks up brand.md + ai-video-editor.json (ElevenLabs key) from Downloads (e.g. an email attachment), checks everything.
 # In -Auto mode, "NEED: ..." lines say what only the user can do (e.g. sign in to Google Drive); exit code 2.
 # Safe to re-run: it skips what's already done and keeps previous settings.
-param([switch]$Auto)
+param([switch]$Auto, [string]$Footage = "")
 $ErrorActionPreference = "Continue"   # not Stop: in Windows PowerShell, pip/winget writing to stderr would abort the script
 $ProgressPreference = "SilentlyContinue"
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -93,7 +94,7 @@ if (-not (DriveMounted)) {
 if (DriveMounted) { Write-Host "Google Drive OK" }
 
 Say "Settings"
-$cfgArgs = @((Join-Path $Here "configure.py")); if ($Auto) { $cfgArgs += "--auto" }
+$cfgArgs = @((Join-Path $Here "configure.py")); if ($Auto) { $cfgArgs += "--auto" }; if ($Footage) { $cfgArgs += @("--footage", $Footage) }
 & $py @cfgArgs
 $cfgExit = $LASTEXITCODE
 

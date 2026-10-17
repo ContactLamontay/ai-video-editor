@@ -1,27 +1,36 @@
-# Writes ~/.ai-video-editor/config.json. Finds the footage library by itself: it searches Google Drive for the
-# brand file (brand.md). The footage folder is:
-#   - the folder that holds brand.md, or
-#   - the folder above it, when brand.md sits in its own "AI video editor" folder (any case, spaces/-/_ allowed), or
-#   - "footage_dir" from the settings file (relative to the brand.md folder, e.g. "..", or absolute).
-# An optional ai-video-editor.json next to brand.md supplies the rest, so nobody has to type paths or keys:
-#   {"elevenlabs_api_key": "...", "music_dir": "Music", "sfx_dir": "Sound FX", "output_dir": "Finished"}
-#   (music/sfx/output folders are relative to the footage folder, or absolute). Without output_dir, the AI asks the
-#   user where finished videos should go the first time they make a video.
+# Writes ~/.ai-video-editor/config.json. Needs nothing typed except, once, the NAME of the footage folder.
 #
-#   python configure.py           asks, with everything it found filled in as defaults (Enter accepts)
-#   python configure.py --auto    asks nothing - for the AI to run. Prints "NEED: <what>" lines and exits 2 when
-#                                 something only the user can do is missing.
-#   --drive-root <dir>            search this folder instead of the detected Google Drive (repeatable; for testing)
-import getpass, json, os, re, string, sys
+# Footage folder (first match wins):
+#   --footage "<name or path>"  e.g. --footage "Bracelet": searched for by name in Google Drive (My Drive + shared
+#                               drives, up to 5 folders deep); a full path works too
+#   "footage_dir" in the settings file (relative to the brand.md folder, or absolute)
+#   the folder above an "AI video editor" folder holding brand.md in Google Drive, or the folder holding brand.md
+#   the previous setting
+# Brand rules + key: brand.md and ai-video-editor.json, found in (first match wins)
+#   ~/Downloads, ~/Desktop, ~/Documents   e.g. saved from an email - copied into ~/.ai-video-editor/ so the copy in
+#                                         Downloads can be deleted; a newer download replaces the stored copy
+#   Google Drive (searched for brand.md, see above)
+#   ~/.ai-video-editor/ (stored copy from an earlier run)
+# ai-video-editor.json: {"elevenlabs_api_key": "...", "music_dir": "Music", "sfx_dir": "Sound FX", "output_dir": "..."}
+#   (folders relative to the footage folder, or absolute). Without output_dir, the AI asks where finished videos go
+#   the first time the user makes a video.
+#
+#   python configure.py [--footage NAME]          asks, with everything it found filled in as defaults
+#   python configure.py --auto [--footage NAME]   asks nothing - for the AI. Prints "NEED: <what>" lines and exits 2
+#                                                 when something only the user can provide is missing.
+#   --drive-root <dir>                            search this folder instead of Google Drive (repeatable; testing)
+import getpass, glob, json, os, re, shutil, string, sys
 
 HOME = os.path.expanduser("~")
 CFG_DIR = os.path.join(HOME, ".ai-video-editor"); CFG_F = os.path.join(CFG_DIR, "config.json")
 BRAND, SETTINGS = "brand.md", "ai-video-editor.json"
-MAX_DEPTH = 5
+MAX_DEPTH, MAX_DIRS = 5, 30000
 KIT_NAME = re.compile(r"^ai[\s_-]*video[\s_-]*editor\b", re.I)   # "AI video editor", "AI-Video-Editor files", ...
 args = sys.argv[1:]
 AUTO = "--auto" in args
+def arg(name): return next((args[i + 1] for i, a in enumerate(args) if a == name and i + 1 < len(args)), "")
 FORCED = [args[i + 1] for i, a in enumerate(args) if a == "--drive-root" and i + 1 < len(args)]
+WANT = arg("--footage").strip().strip('"')
 
 def drive_roots():
     """top-level folders of Google Drive for Desktop: My Drive and each shared drive"""
@@ -39,21 +48,39 @@ def drive_roots():
         if os.path.isdir(sd): roots += [os.path.join(sd, d) for d in sorted(os.listdir(sd)) if os.path.isdir(os.path.join(sd, d))]
     return roots
 
-def find_brand(roots):
-    """breadth-first search for brand.md, shallowest first (Drive lists folders without downloading files)"""
-    hits, level = [], [(r, 0) for r in roots]
-    while level and len(hits) < 10:
+def walk(roots):
+    """breadth-first (dir, entries) over Google Drive, shallowest first; Drive lists folders without downloading files"""
+    level, seen = [(r, 0) for r in roots], 0
+    while level and seen < MAX_DIRS:
         nxt = []
         for d, depth in level:
-            try: entries = list(os.scandir(d))
+            try: entries = [e for e in os.scandir(d) if not e.name.startswith((".", "$"))]
             except OSError: continue
-            for e in entries:
-                if e.name.startswith(".") or e.name.startswith("$"): continue
-                if e.is_file() and e.name.lower() == BRAND: hits.append(d)
-                elif e.is_dir() and depth < MAX_DEPTH: nxt.append((e.path, depth + 1))
+            seen += 1
+            yield d, entries
+            nxt += [(e.path, depth + 1) for e in entries if depth < MAX_DEPTH and e.is_dir()]
         level = nxt
-    # prefer the folder that also has the settings file
+
+def find_brand(roots):
+    hits = [d for d, es in walk(roots) if any(e.is_file() and e.name.lower() == BRAND for e in es)][:10]
     return sorted(hits, key=lambda d: (not os.path.isfile(os.path.join(d, SETTINGS)), d.count(os.sep), d))
+
+def find_folder(roots, name):
+    """folders called <name> (any case); falls back to names containing it"""
+    want = name.casefold(); exact, partial = [], []
+    for d, es in walk(roots):
+        for e in es:
+            if e.is_dir():
+                n = e.name.casefold()
+                if n == want: exact.append(e.path)
+                elif want in n: partial.append(e.path)
+        if len(exact) >= 5: break
+    return exact or partial[:5]
+
+def pretty(p):
+    """path as the user sees it in Google Drive ("Shared drives/Marketing/Bracelet")"""
+    m = re.search(r"((?:My Drive|Shared drives)[\\/].*)$", p)
+    return (m.group(1) if m else p).replace("\\", "/")
 
 def load(p):
     try: return json.load(open(p, encoding="utf-8-sig"))
@@ -67,43 +94,72 @@ def ask(q, default=""):
     a = input(f"{q}" + (f" [{default}]" if default else "") + ": ").strip().strip('"')
     return os.path.expanduser(a) if a else default
 
+def newest(pattern_dirs, patterns):
+    files = [f for d in pattern_dirs for p in patterns for f in glob.glob(os.path.join(d, p))]
+    return max(files, key=os.path.getmtime) if files else ""
+
 old = load(CFG_F)
 need = []
+os.makedirs(CFG_DIR, exist_ok=True)
 roots = drive_roots()
 if not roots and not FORCED:
     need.append("google-drive: Google Drive for Desktop isn't signed in on this computer (no My Drive / Shared drives found)")
 
-hits = find_brand(roots) if roots else []
-footage = old.get("footage_dir", "") if old.get("footage_dir") and os.path.isdir(old.get("footage_dir")) else ""
-kit = os.path.dirname(old.get("brand_file", "")) if old.get("brand_file") else ""   # folder holding brand.md + settings
-if hits:
-    kit = os.path.normpath(hits[0])
-    ks = load(os.path.join(kit, SETTINGS))
-    if ks.get("footage_dir"):                                   # settings file says where the footage is
-        footage = resolve(kit, ks["footage_dir"])
-    elif KIT_NAME.match(os.path.basename(kit)):                 # brand.md in its own "AI video editor" folder
-        footage = os.path.dirname(kit)
-    else:                                                       # brand.md right in the footage folder
-        footage = kit
-    print(f"Found the brand file in: {kit}")
-    if footage != kit: print(f"Footage folder: {footage}")
-    if len(hits) > 1: print("  (also found brand.md in: " + "; ".join(hits[1:4]) + " - using the first)")
-elif roots:
-    need.append(f"brand-file: no {BRAND} found in Google Drive (searched {len(roots)} drive(s), {MAX_DEPTH} folders deep). "
-                f"If the footage folder was shared with this person, it only shows up on this computer after they add a "
-                f"shortcut to it in My Drive. Otherwise: wrong Google account, or Drive is still loading - run setup again")
+# ---- brand rules + settings: from Downloads (e.g. an email attachment) > Google Drive > stored copy ----
+local_brand, local_settings = os.path.join(CFG_DIR, BRAND), os.path.join(CFG_DIR, SETTINGS)
+dl_dirs = [os.path.join(HOME, d) for d in ("Downloads", "Desktop", "Documents")]
+dl_brand = newest(dl_dirs, ["brand.md", "brand (*).md", "brand-*.md", "*-brand.md"])   # brand.md, brand (1).md, fitsleeps-brand.md
+dl_settings = newest(dl_dirs, ["ai-video-editor.json", "ai-video-editor (*).json", "ai-video-editor*.json"])
+drive_kit = ""
+if not (dl_brand and dl_settings) and roots:
+    hits = find_brand(roots)
+    if hits:
+        drive_kit = os.path.normpath(hits[0])
+        if len(hits) > 1: print("  (brand.md is in more than one Drive folder - using " + pretty(drive_kit) + ")")
+for src, dst in ((dl_brand or (drive_kit and os.path.join(drive_kit, BRAND)), local_brand),
+                 (dl_settings or (drive_kit and os.path.join(drive_kit, SETTINGS)), local_settings)):
+    if src and os.path.isfile(src) and (not os.path.isfile(dst) or os.path.getmtime(src) > os.path.getmtime(dst)):
+        shutil.copy2(src, dst); print(f"Saved a private copy of {os.path.basename(src)} (from {pretty(os.path.dirname(src))})")
+s = load(local_settings)
+brand = local_brand if os.path.isfile(local_brand) else ""
 
+# ---- footage folder ----
+footage = ""
+if WANT:
+    if os.path.isdir(os.path.expanduser(WANT)):
+        footage = os.path.normpath(os.path.expanduser(WANT))
+    elif roots:
+        found = find_folder(roots, WANT)
+        if len(found) == 1:
+            footage = os.path.normpath(found[0])
+        elif found:
+            need.append(f"footage-choose: more than one folder matches \"{WANT}\": " + " | ".join(pretty(f) for f in found)
+                        + " - ask the user which one, then run setup again with that full path")
+        else:
+            need.append(f"footage-not-found: no folder called \"{WANT}\" in Google Drive. Check the spelling with the user "
+                        "(or Google Drive may still be loading - wait a minute). If the folder is under \"Shared with me\" "
+                        "in drive.google.com, they add a shortcut to it in My Drive first, then run setup again")
+if not footage and s.get("footage_dir"):
+    footage = resolve(drive_kit or CFG_DIR, s["footage_dir"])
+if not footage and drive_kit:
+    footage = os.path.dirname(drive_kit) if KIT_NAME.match(os.path.basename(drive_kit)) else drive_kit
+if not footage and old.get("footage_dir") and os.path.isdir(old["footage_dir"]):
+    footage = old["footage_dir"]
 if not AUTO:
     while True:
-        footage = ask("Footage folder (the top folder with all the footage)", footage)
-        if footage and os.path.isdir(footage): break
-        print("Can't find that folder - copy its path from File Explorer / Finder.")
-    need = [n for n in need if not n.startswith("brand-file")]
+        a = ask("Footage folder - its name in Google Drive, or the full path", footage)
+        if a and os.path.isdir(a): footage = a; break
+        found = find_folder(roots, a) if a and roots else []
+        if len(found) == 1: footage = found[0]; print("Found " + pretty(footage)); break
+        print("Several matches: " + " | ".join(pretty(f) for f in found) if found else "Can't find that folder - try again.")
+    need = [n for n in need if not n.startswith("footage")]
+if footage:
+    print("Footage folder: " + pretty(footage))
+elif roots and not any(n.startswith("footage") for n in need):
+    need.append("footage-folder: ask the user which Google Drive folder holds their footage (just its name, e.g. "
+                "\"Bracelet\"), then run setup again with that name")
 
-kit = kit or footage
-s = load(os.path.join(kit, SETTINGS)) if kit else {}
-if s: print(f"Using settings from {os.path.join(kit, SETTINGS)}")
-brand = os.path.join(kit, BRAND) if kit and os.path.isfile(os.path.join(kit, BRAND)) else old.get("brand_file", "")
+# ---- the rest ----
 projects = ask("Where to keep edit projects on this computer", old.get("projects_dir") or os.path.join(HOME, "Video Edits"))
 output = ask("Where finished videos go (Enter = the AI asks on the first video)", resolve(footage, s.get("output_dir")) or old.get("output_dir", ""))
 music = ask("Music folder (Enter to skip)", resolve(footage, s.get("music_dir")) or old.get("music_dir", ""))
@@ -112,8 +168,12 @@ key = s.get("elevenlabs_api_key") or old.get("elevenlabs_api_key", "")
 if not AUTO:
     k = getpass.getpass("ElevenLabs API key (hidden; Enter keeps " + ("the current one" if key else "it empty") + "): ").strip()
     key = k or key
-if not key and footage:   # the key lives next to brand.md, so only ask once that's found
-    need.append(f"elevenlabs-key: no ElevenLabs key - add \"elevenlabs_api_key\" to {SETTINGS} next to {BRAND} in Google Drive")
+if not brand:
+    need.append(f"brand-file: no {BRAND} on this computer yet - the user saves the {BRAND} file they were sent (e.g. the "
+                "email attachment) to their Downloads folder, then run setup again")
+if not key:
+    need.append(f"elevenlabs-key: no ElevenLabs key - the user saves the {SETTINGS} file they were sent (e.g. the email "
+                "attachment) to their Downloads folder, then run setup again")
 
 for d in [x for x in (projects, output) if x]:
     try: os.makedirs(d, exist_ok=True)
@@ -121,13 +181,13 @@ for d in [x for x in (projects, output) if x]:
 
 cfg = {"footage_dir": footage, "projects_dir": projects, "output_dir": output, "music_dir": music, "sfx_dir": sfx,
        "brand_file": brand, "elevenlabs_api_key": key}
-if footage or not AUTO:   # never write an empty config in auto mode - the setup check would think it's done
-    os.makedirs(CFG_DIR, exist_ok=True)
+if footage or not AUTO:   # never write a config without footage in auto mode - the setup check would think it's done
     json.dump(cfg, open(CFG_F, "w", encoding="utf-8"), indent=2)
-    try: os.chmod(CFG_F, 0o600)
-    except OSError: pass
+    for f in (CFG_F, local_settings):
+        try: os.chmod(f, 0o600)
+        except OSError: pass
     print(f"Saved settings to {CFG_F}")
-    print(f"  footage: {footage}\n  finished videos: {output or '(not chosen yet - the AI asks on the first video)'}\n  projects: {projects}\n  brand file: {brand or '(none)'}")
+    print(f"  finished videos: {output or '(not chosen yet - the AI asks on the first video)'}\n  brand file: {brand or '(none)'}")
 
 for n in need: print("NEED: " + n)
 sys.exit(2 if need else 0)

@@ -4,11 +4,13 @@
 # Apple requires it for any app installer.
 #   bash "<this file>"          asks a few questions (defaults filled in)
 #   bash "<this file>" --auto   asks nothing - the AI runs this one
-# Finds the footage folder by searching Google Drive for brand.md, reads ai-video-editor.json next to it (ElevenLabs
-# key, folders), checks everything. In --auto mode, "NEED: ..." lines say what only the user can do (install Google
+#   bash "<this file>" --auto --footage "Bracelet"   the footage folder's name in Google Drive (asked once by the AI)
+# Finds the footage folder by name in Google Drive, picks up brand.md + ai-video-editor.json (ElevenLabs key) from
+# Downloads (e.g. an email attachment), checks everything. In --auto mode, "NEED: ..." lines say what only the user can do (install Google
 # Drive with their password, sign in); exit code 2. Safe to re-run: it skips what's already done.
 HERE="$(cd "$(dirname "$0")" && pwd)"
-AUTO=""; [ "$1" = "--auto" ] && AUTO="--auto"
+AUTO=""; FOOTAGE=""
+while [ $# -gt 0 ]; do case "$1" in --auto) AUTO="--auto" ;; --footage) FOOTAGE="$2"; shift ;; esac; shift; done
 BASE="$HOME/.ai-video-editor"; BIN="$BASE/bin"; VENV="$BASE/venv"; DL="$BASE/downloads"
 mkdir -p "$BIN" "$DL"
 export PATH="$BIN:$HOME/.local/bin:$PATH"
@@ -86,7 +88,7 @@ mounted && echo "Google Drive OK"
 rm -f "$DL/GoogleDrive.dmg"
 
 say "Settings"
-"$PY" "$HERE/configure.py" $AUTO; CFG_EXIT=$?
+if [ -n "$FOOTAGE" ]; then "$PY" "$HERE/configure.py" $AUTO --footage "$FOOTAGE"; else "$PY" "$HERE/configure.py" $AUTO; fi; CFG_EXIT=$?
 
 say "Checking everything"
 if "$PY" "$HERE/doctor.py" && [ "$CFG_EXIT" = 0 ]; then
