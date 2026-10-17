@@ -34,7 +34,10 @@ function FindPython {
     return $null
 }
 function DriveMounted {
-    [bool](Get-PSDrive -PSProvider FileSystem | Where-Object { (Test-Path (Join-Path $_.Root "My Drive")) -or (Test-Path (Join-Path $_.Root "Shared drives")) })
+    # any language: the Google Drive volume is labelled "Google Drive" (its folders may be "Mijn Drive", "Meine Ablage"...)
+    [bool]([System.IO.DriveInfo]::GetDrives() | Where-Object { $_.IsReady -and ($_.VolumeLabel -eq "Google Drive" -or
+        (Test-Path (Join-Path $_.RootDirectory.FullName "My Drive")) -or (Test-Path (Join-Path $_.RootDirectory.FullName "Mijn Drive")) -or
+        (Test-Path (Join-Path $_.RootDirectory.FullName "Shared drives")) -or (Test-Path (Join-Path $_.RootDirectory.FullName "Gedeelde drives"))) })
 }
 function DriveExe {
     $p = Get-ChildItem "$env:ProgramFiles\Google\Drive File Stream\*\GoogleDriveFS.exe" -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1

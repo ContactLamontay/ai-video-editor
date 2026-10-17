@@ -24,29 +24,65 @@ import getpass, glob, json, os, re, shutil, string, sys
 HOME = os.path.expanduser("~")
 CFG_DIR = os.path.join(HOME, ".ai-video-editor"); CFG_F = os.path.join(CFG_DIR, "config.json")
 BRAND, SETTINGS = "brand.md", "ai-video-editor.json"
-MAX_DEPTH, MAX_DIRS = 5, 30000
+MAX_DEPTH, MAX_DIRS = 6, 40000
 KIT_NAME = re.compile(r"^ai[\s_-]*video[\s_-]*editor\b", re.I)   # "AI video editor", "AI-Video-Editor files", ...
 args = sys.argv[1:]
 AUTO = "--auto" in args
 def arg(name): return next((args[i + 1] for i, a in enumerate(args) if a == name and i + 1 < len(args)), "")
 FORCED = [args[i + 1] for i, a in enumerate(args) if a == "--drive-root" and i + 1 < len(args)]
 WANT = arg("--footage").strip().strip('"')
+BLOCKED = []   # folders macOS wouldn't let us read (privacy permission)
+
+# Google Drive's own folder names depend on the computer's language ("My Drive" / "Mijn Drive" / "Meine Ablage"...)
+MY_NAMES = {"my drive", "mijn drive", "meine ablage", "mon drive", "mi unidad", "il mio drive", "meu drive", "min enhet",
+            "mitt drev", "min drev", "oma drive", "mój dysk"}
+SHARED_NAMES = {"shared drives", "gedeelde drives", "geteilte ablagen", "drive partagés", "unidades compartidas",
+                "drive condivisi", "drives compartilhados", "delade enheter", "delte drev", "jaetut drivet", "dyski współdzielone"}
+MOUNTS = []
+
+def win_label(letter):
+    try:
+        import ctypes
+        buf = ctypes.create_unicode_buffer(261)
+        ok = ctypes.windll.kernel32.GetVolumeInformationW(f"{letter}:\\", buf, 261, None, None, None, None, 0)
+        return buf.value if ok else ""
+    except Exception:
+        return ""
 
 def drive_roots():
-    """top-level folders of Google Drive for Desktop: My Drive and each shared drive"""
+    """top-level folders of Google Drive for Desktop (My Drive, the shared drives folder, ...) in any language"""
     if FORCED: return FORCED
     mounts = []
     if os.name == "nt":
-        mounts = [f"{d}:\\" for d in string.ascii_uppercase if os.path.isdir(f"{d}:\\My Drive") or os.path.isdir(f"{d}:\\Shared drives")]
+        for d in string.ascii_uppercase:
+            root = f"{d}:\\"
+            if not os.path.isdir(root): continue
+            try: names = {n.casefold() for n in os.listdir(root)}
+            except OSError: continue
+            if names & (MY_NAMES | SHARED_NAMES) or win_label(d).casefold() == "google drive": mounts.append(root)
     else:
         cs = os.path.join(HOME, "Library", "CloudStorage")
-        if os.path.isdir(cs): mounts = [os.path.join(cs, d) for d in sorted(os.listdir(cs)) if d.startswith("GoogleDrive-")]
+        try: mounts = [os.path.join(cs, d) for d in sorted(os.listdir(cs)) if d.startswith("GoogleDrive-")]
+        except PermissionError: BLOCKED.append(cs)
+        except OSError: pass
+    MOUNTS[:] = mounts
     roots = []
-    for m in mounts:
-        if os.path.isdir(os.path.join(m, "My Drive")): roots.append(os.path.join(m, "My Drive"))
-        sd = os.path.join(m, "Shared drives")
-        if os.path.isdir(sd): roots += [os.path.join(sd, d) for d in sorted(os.listdir(sd)) if os.path.isdir(os.path.join(sd, d))]
+    for m in mounts:   # every top folder of the mount, whatever it's called - the search walks below them
+        try: roots += [os.path.join(m, d) for d in sorted(os.listdir(m)) if not d.startswith((".", "$")) and os.path.isdir(os.path.join(m, d))]
+        except PermissionError: BLOCKED.append(m)
+    for r in roots:
+        try: os.listdir(r)
+        except PermissionError: BLOCKED.append(r)
     return roots
+
+def visible(roots):
+    """what this computer can see in Google Drive: top folders and shared drive names"""
+    out = []
+    for r in roots:
+        try: kids = [e.name for e in os.scandir(r) if e.is_dir() and not e.name.startswith(".")][:15]
+        except OSError: kids = []
+        out += [pretty(os.path.join(r, k)) for k in kids] or [pretty(r)]
+    return ", ".join(out) or "nothing yet"
 
 def walk(roots):
     """breadth-first (dir, entries) over Google Drive, shallowest first; Drive lists folders without downloading files"""
@@ -68,6 +104,10 @@ def find_brand(roots):
 def find_folder(roots, name):
     """folders called <name> (any case); falls back to names containing it"""
     want = name.casefold(); exact, partial = [], []
+    for r in roots:                       # the folder may be a whole shared drive ("Shared drives/Bracelet")
+        n = os.path.basename(os.path.normpath(r)).casefold()
+        if n == want: exact.append(r)
+        elif want in n and n not in MY_NAMES: partial.append(r)
     for d, es in walk(roots):
         for e in es:
             if e.is_dir():
@@ -78,9 +118,11 @@ def find_folder(roots, name):
     return exact or partial[:5]
 
 def pretty(p):
-    """path as the user sees it in Google Drive ("Shared drives/Marketing/Bracelet")"""
-    m = re.search(r"((?:My Drive|Shared drives)[\\/].*)$", p)
-    return (m.group(1) if m else p).replace("\\", "/")
+    """path as the user sees it in Google Drive ("Gedeelde drives/Bracelet")"""
+    for m in MOUNTS + FORCED:
+        m = os.path.normpath(m)
+        if os.path.normpath(p).startswith(m): return os.path.relpath(p, m).replace("\\", "/")
+    return p.replace("\\", "/")
 
 def load(p):
     try: return json.load(open(p, encoding="utf-8-sig"))
@@ -104,6 +146,10 @@ os.makedirs(CFG_DIR, exist_ok=True)
 roots = drive_roots()
 if not roots and not FORCED:
     need.append("google-drive: Google Drive for Desktop isn't signed in on this computer (no My Drive / Shared drives found)")
+if BLOCKED:
+    need.append("drive-permission: the Mac isn't letting Claude / Codex read Google Drive. Open System Settings -> Privacy & "
+                "Security -> Files and Folders (or Full Disk Access), turn on access for the Claude / Codex app, quit and "
+                "reopen it, then run setup again")
 
 # ---- brand rules + settings: from Downloads (e.g. an email attachment) > Google Drive > stored copy ----
 local_brand, local_settings = os.path.join(CFG_DIR, BRAND), os.path.join(CFG_DIR, SETTINGS)
@@ -136,9 +182,10 @@ if WANT:
             need.append(f"footage-choose: more than one folder matches \"{WANT}\": " + " | ".join(pretty(f) for f in found)
                         + " - ask the user which one, then run setup again with that full path")
         else:
-            need.append(f"footage-not-found: no folder called \"{WANT}\" in Google Drive. Check the spelling with the user "
-                        "(or Google Drive may still be loading - wait a minute). If the folder is under \"Shared with me\" "
-                        "in drive.google.com, they add a shortcut to it in My Drive first, then run setup again")
+            need.append(f"footage-not-found: no folder called \"{WANT}\" in Google Drive. What this computer can see: "
+                        f"{visible(roots)}. Check the spelling with the user (or Google Drive may still be loading - wait "
+                        "a minute). If the folder is under \"Shared with me\" in drive.google.com, they add a shortcut to "
+                        "it in My Drive first, then run setup again")
 if not footage and s.get("footage_dir"):
     footage = resolve(drive_kit or CFG_DIR, s["footage_dir"])
 if not footage and drive_kit:

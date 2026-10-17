@@ -31,7 +31,12 @@ if [ ! -x "$VENV/bin/python" ]; then
   echo "Downloading Python 3.12..."
   uv venv --quiet --python 3.12 "$VENV" || need "python: Python download failed - run setup again"
 fi
-ln -sf "$VENV/bin/python" "$BIN/python3"; ln -sf "$VENV/bin/python" "$BIN/python"
+# small launcher scripts, not symlinks: Python finds its packages from the path it's started by, and a symlink outside
+# the venv would start it without them (rm first - writing through an old symlink would overwrite Python itself)
+for n in python3 python; do
+  rm -f "$BIN/$n"
+  printf '#!/bin/bash\nexec "%s/bin/python" "$@"\n' "$VENV" > "$BIN/$n"; chmod +x "$BIN/$n"
+done
 PY="$BIN/python3"
 echo "Using $PY ($("$PY" --version 2>&1))"
 
