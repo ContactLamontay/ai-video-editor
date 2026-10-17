@@ -5,7 +5,7 @@
 If a user shared this link and asked you to set it up, they are a video editor, not a developer. Keep it short and
 plain, and don't clone or modify this repo for them unless the steps below say so.
 
-**They have the zip file instead of this link** (no GitHub / Git needed): follow
+**They have the zip file instead of this link** (no Git needed - also the way to install or update from GitHub without Git): follow
 [INSTALL-FOR-CLAUDE.md](INSTALL-FOR-CLAUDE.md).
 
 **In Claude (desktop app Code tab, or Claude Code):** you can't run `/plugin` commands yourself. Ask the user to type
