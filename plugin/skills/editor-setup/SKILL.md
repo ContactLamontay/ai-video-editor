@@ -36,9 +36,14 @@ company Google Drive (or loose in the top footage folder):
      Tell them: click **Continue**, then **Install**, and type the password they use to unlock their Mac. That's the
      only password in the whole setup (Apple requires it for any app installer). When it says it succeeded, run
      setup again - it then opens Google Drive for the sign-in.
-   - `NEED: brand-file` - signed in with the right Google account? Drive may still be loading the folder list - wait
-     a minute and run again. If it still fails, tell them to contact whoever set up the system: `brand.md` needs to be
-     in the top footage folder of their Google Drive.
+   - `NEED: brand-file` - most often the footage folder was **shared with them** (it's under "Shared with me"), and
+     shared folders don't appear on their computer until they add a shortcut. Walk them through it, once:
+     1. Open **drive.google.com** and click **Shared with me** on the left.
+     2. Right-click the footage folder (the one with the **AI video editor** folder inside) -> **Organize** ->
+        **Add shortcut** -> **My Drive** -> **Add**.
+     3. Wait about a minute, then run setup again.
+     Also check they signed in to Google Drive with the company account. If it still fails, they contact whoever set
+     up the system: `brand.md` must be in their Google Drive, in an "AI video editor" folder at the top of the footage.
    - `NEED: elevenlabs-key` - the settings file next to `brand.md` is missing or has no key; same contact.
    - `NEED: winget` / `NEED: python` - give them the fix it prints in plain words.
 4. **When it prints `READY`**, tell them to **quit and reopen the Claude / Codex app once** (so newly installed

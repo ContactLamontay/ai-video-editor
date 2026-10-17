@@ -90,7 +90,8 @@ if hits:
     if len(hits) > 1: print("  (also found brand.md in: " + "; ".join(hits[1:4]) + " - using the first)")
 elif roots:
     need.append(f"brand-file: no {BRAND} found in Google Drive (searched {len(roots)} drive(s), {MAX_DEPTH} folders deep). "
-                f"Put {BRAND} in the top folder that holds the footage, wait for Drive to sync, run setup again")
+                f"If the footage folder was shared with this person, it only shows up on this computer after they add a "
+                f"shortcut to it in My Drive. Otherwise: wrong Google account, or Drive is still loading - run setup again")
 
 if not AUTO:
     while True:
