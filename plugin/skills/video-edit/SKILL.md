@@ -22,7 +22,8 @@ Worked example: `references/example_edl_short.py`.
 
 The scripts are in `scripts/` next to this file. Run them with:
 - `VLOG_DIR` = the project folder, and `PYTHONPATH` = this skill's `scripts/` folder
-- `python` on Windows, `python3` on Mac
+- `python` on Windows, `python3` on Mac (if `python3` isn't the editor's own yet - right after setup, before the app
+  restarts - use `~/.ai-video-editor/bin/python3`)
 - the working directory = `scripts/` (edl.py lives in the project's `Edit/_work/` and is run by path)
 - set env vars the way your shell does: bash `VLOG_DIR="..." PYTHONPATH="..." python prep.py`; PowerShell
   `$env:VLOG_DIR="..."; $env:PYTHONPATH="..."; python prep.py`

@@ -15,14 +15,12 @@ for s in "$REPO"/plugin/skills/*/; do
 done
 
 touch "$AGENTS"
-/usr/bin/python3 - "$AGENTS" "$REPO/codex/AGENTS.md" <<'EOF'
-import re, sys
-path, block = sys.argv[1], open(sys.argv[2]).read().strip()
-text = open(path).read()
-pat = re.compile(r"<!-- ai-video-editor:start -->.*?<!-- ai-video-editor:end -->", re.S)
-text = pat.sub(lambda m: block, text) if pat.search(text) else (text.rstrip() + "\n\n" + block + "\n").lstrip()
-open(path, "w").write(text)
-EOF
+# perl ships with every Mac (the system python3 doesn't work until Apple's developer tools are installed)
+BLOCK="$(cat "$REPO/codex/AGENTS.md")" perl -0777 -i -pe '
+  my $b = $ENV{BLOCK}; $b =~ s/\s+\z//;
+  if (/<!-- ai-video-editor:start -->.*?<!-- ai-video-editor:end -->/s) { s//$b/s }
+  else { s/\s+\z//; $_ = ($_ eq "" ? "" : "$_\n\n") . "$b\n" }
+' "$AGENTS"
 echo "instructions added: $AGENTS"
 
 SETUP="$DST/editor-setup/setup-mac.sh"

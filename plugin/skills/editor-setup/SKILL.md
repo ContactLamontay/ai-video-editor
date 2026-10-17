@@ -16,22 +16,25 @@ Whoever manages the system has put two files in the **top folder of the footage*
   (folders relative to that folder). Only the key is required.
 
 ## Steps
-1. **Check first.** If Python works: `python "<this skill's folder>/doctor.py"` (`python3` on Mac). `READY` means
+1. **Check first.** Windows: `python "<this skill's folder>/doctor.py"`. Mac: only if `~/.ai-video-editor/bin/python3`
+   exists, run `~/.ai-video-editor/bin/python3 "<this skill's folder>/doctor.py"` (never the system `python3` - on a
+   fresh Mac it pops an Apple install dialog); otherwise skip to step 2. `READY` means
    done: tell them they're set and suggest a first request ("Make a 20-second Reel from the newest testimonial
    footage"). Stop.
 2. **Run the setup yourself, no questions asked** (tell them it takes a few minutes, mostly waiting; run it in the
    background or with a long timeout):
    - Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File "<this skill's folder, C:\ path>\setup-windows.ps1" -Auto`
    - Mac: `bash "<this skill's folder>/setup-mac.sh" --auto`
-   If Windows asks for permission to install something, tell them to click **Yes**.
+   If Windows asks for permission to install something, tell them to click **Yes**. On a Mac, Python and FFmpeg
+   download into their user folder with no password.
 3. **Handle what it prints**, then run it again until it prints `READY`:
    - `NEED: google-drive-signin` - the Google Drive window is open (or the Drive icon near the clock / in the menu bar).
      Ask them to sign in with their **company Google account** and tell you when their Google Drive shows up in File
      Explorer / Finder. Drive can take a minute to appear after signing in.
-   - `NEED: google-drive-install` (Mac) - they download Google Drive for Desktop from
-     https://www.google.com/drive/download/, install it and sign in (it asks for their Mac password, so they do it).
-   - `NEED: homebrew` (Mac) - give them the one command it prints to paste into the Terminal app; it asks for their
-     Mac password. Then run setup again.
+   - `NEED: google-drive-install` (Mac) - the setup has downloaded Google Drive and opened its installer on screen.
+     Tell them: click **Continue**, then **Install**, and type the password they use to unlock their Mac. That's the
+     only password in the whole setup (Apple requires it for any app installer). When it says it succeeded, run
+     setup again - it then opens Google Drive for the sign-in.
    - `NEED: brand-file` - signed in with the right Google account? Drive may still be loading the folder list - wait
      a minute and run again. If it still fails, tell them to contact whoever set up the system: `brand.md` needs to be
      in the top footage folder of their Google Drive.

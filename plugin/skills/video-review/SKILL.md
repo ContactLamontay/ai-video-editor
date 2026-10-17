@@ -6,7 +6,7 @@ description: Review gate for every video edit - render a fast PREVIEW (never the
 # Video review gate
 
 The editor reviews every cut before the final render. The app is in `app/` next to this file (`python` on Windows,
-`python3` on Mac). The loop:
+`python3` or `~/.ai-video-editor/bin/python3` on Mac). The loop:
 
 1. **Render a preview, not the final.** Small and fast: H.264 MP4, short side 540-720 px, same frame rate and length
    as the edit, in `Edit/Previews/` inside the project, named `<edit>_preview_r<round>.mp4`. The `video-edit` scripts

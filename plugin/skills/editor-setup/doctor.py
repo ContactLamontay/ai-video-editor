@@ -1,6 +1,9 @@
 # Checks that this computer is ready for the AI video editor. Prints one line per check and exits 1 if anything
 # required is missing. Never prints the API key.   python doctor.py [--quiet]
 import json, os, shutil, subprocess, sys
+_BIN = os.path.join(os.path.expanduser("~"), ".ai-video-editor", "bin")   # Mac setup puts ffmpeg/python here
+if os.path.isdir(_BIN) and _BIN not in os.environ.get("PATH", "").split(os.pathsep):
+    os.environ["PATH"] = _BIN + os.pathsep + os.environ.get("PATH", "")
 
 CFG_F = os.path.join(os.path.expanduser("~"), ".ai-video-editor", "config.json")
 ok_all = True

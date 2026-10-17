@@ -11,6 +11,9 @@
 # (%LOCALAPPDATA%/ai-video-editor/... or ~/ai-video-editor-cache/...).
 import os, glob, json, re, hashlib
 from fractions import Fraction
+_BIN = os.path.join(os.path.expanduser("~"), ".ai-video-editor", "bin")   # Mac setup puts ffmpeg/python here
+if os.path.isdir(_BIN) and _BIN not in os.environ.get("PATH", "").split(os.pathsep):
+    os.environ["PATH"] = _BIN + os.pathsep + os.environ.get("PATH", "")
 
 CFG_DIR = os.path.join(os.path.expanduser("~"), ".ai-video-editor")
 CFG_F = os.path.join(CFG_DIR, "config.json")

@@ -3,11 +3,14 @@
 # to set it up - Claude runs the no-questions setup itself. Silent once everything is in place.
 ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 CFG="$HOME/.ai-video-editor/config.json"
+export PATH="$HOME/.ai-video-editor/bin:$PATH"   # Mac setup puts python3/ffmpeg here
+# On a Mac, never call the system python3: without Apple's developer tools it pops an install dialog
+PYS="python3 python"; [ "$(uname -s)" = "Darwin" ] && PYS="$HOME/.ai-video-editor/bin/python3"
 
 missing=""
 command -v ffmpeg >/dev/null 2>&1 || missing="$missing ffmpeg,"
 PY=""
-for p in python3 python; do
+for p in $PYS; do
   if command -v "$p" >/dev/null 2>&1 && "$p" -c "import PIL, numpy" >/dev/null 2>&1; then PY="$p"; break; fi
 done
 if [ -z "$PY" ]; then

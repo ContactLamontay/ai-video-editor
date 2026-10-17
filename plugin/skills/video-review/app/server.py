@@ -15,6 +15,9 @@ Stdlib only; ffmpeg on PATH is used to make browser-playable proxies of original
 """
 import argparse, hashlib, json, mimetypes, os, re, shutil, subprocess, sys, threading, time, urllib.parse, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+_BIN = os.path.join(os.path.expanduser("~"), ".ai-video-editor", "bin")   # Mac setup puts ffmpeg/python here
+if os.path.isdir(_BIN) and _BIN not in os.environ.get("PATH", "").split(os.pathsep):
+    os.environ["PATH"] = _BIN + os.pathsep + os.environ.get("PATH", "")
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 VIDEO_EXT = {".mp4", ".mov", ".m4v", ".webm", ".mkv"}
