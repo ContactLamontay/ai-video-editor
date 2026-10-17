@@ -6,7 +6,7 @@
       "name": "ai-video-editor",
       "source": "./plugin",
       "description": "AI video editing for brand teams: footage library on Google Drive, cuts, captions, music, review screen, final export.",
-      "version": "1.5.0"
+      "version": "1.5.1"
     }
   ]
 }

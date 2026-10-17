@@ -5,8 +5,12 @@
 If a user shared this link and asked you to set it up, they are a video editor, not a developer. Keep it short and
 plain, and don't clone or modify this repo for them unless the steps below say so.
 
+**They have the zip file instead of this link** (no GitHub / Git needed): follow
+[INSTALL-FOR-CLAUDE.md](INSTALL-FOR-CLAUDE.md).
+
 **In Claude (desktop app Code tab, or Claude Code):** you can't run `/plugin` commands yourself. Ask the user to type
-these two commands, one at a time:
+these two commands, one at a time (adding a GitHub marketplace needs Git; on a Mac without it, run
+`xcode-select --install` and have them click Install - or use the zip route above):
 
 ```
 /plugin marketplace add ContactLamontay/ai-video-editor
@@ -15,17 +19,16 @@ these two commands, one at a time:
 /plugin install ai-video-editor@ai-video-editor
 ```
 
-Then ask them to **start a new session**. The plugin checks the computer when the session starts and gives them the
-one-time setup command (Python, FFmpeg, Google Drive footage folder, brand file, ElevenLabs key).
+Then ask them to **start a new session**. The plugin checks the computer when the session starts and offers to run
+the one-time setup itself (Python, FFmpeg, Google Drive, footage folder, brand file, ElevenLabs key).
 
 **In Codex:** run `git clone https://github.com/ContactLamontay/ai-video-editor.git "$HOME/ai-video-editor"` (ask
 first), then ask the user to run the installer themselves in a terminal, because it asks questions:
 - Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File "$HOME\ai-video-editor\codex\install-codex.ps1"`
 - Mac: `bash "$HOME/ai-video-editor/codex/install-codex.sh"`
 
-**Both:** before setup, the user needs Google Drive for Desktop installed and signed in with their company Google
-account (https://www.google.com/drive/download/), and the ElevenLabs API key from their manager. Never ask for the key
-in chat; the setup script asks for it with hidden typing.
+**Both:** the setup needs the two files the user was sent (`brand.md` and `ai-video-editor.json`, with the ElevenLabs
+key) saved in Downloads, and the name of their footage folder in Google Drive. Never ask for the key in chat.
 
 Editor guides: [Claude](EDITOR-GUIDE-CLAUDE.md) · [Codex](EDITOR-GUIDE-CODEX.md)
 
