@@ -1,6 +1,6 @@
 {
   "name": "ai-video-editor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "AI video editing for brand teams: finds footage in the Google Drive library, cuts, captions, music, review screen and final export, following each brand's rules.",
   "author": { "name": "Josh Brahimi" }
 }

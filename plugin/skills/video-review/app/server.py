@@ -9,6 +9,8 @@ Sidecar files, all next to the video (e.g. Previews/Ad1_v1.mp4):
   Ad1_v1.words.json   optional, written by the AI: word timings [{"text","start","end"}] or [[start,end,text]]
 
 Usage:  python server.py "C:\\path\\to\\project" [--video Previews\\Ad1_v1.mp4] [--port 8765] [--no-open]
+The always-on "hub" is this server rooted at the projects folder (projects_dir) on port 8770 (see open_review.py),
+so every edited video can be picked from one tab.
 Stdlib only; ffmpeg on PATH is used to make browser-playable proxies of original footage.
 """
 import argparse, hashlib, json, mimetypes, os, re, shutil, subprocess, sys, threading, time, urllib.parse, webbrowser
@@ -22,6 +24,8 @@ MIME = {".mp4": "video/mp4", ".m4v": "video/mp4", ".mov": "video/quicktime", ".w
         ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml"}
 ROOT = "."
 _proxy_locks, _proxy_guard = {}, threading.Lock()
+# open_review.py asks an already-open tab to switch videos instead of opening a new one
+STATE = {"last_ping": 0.0, "focus": None}
 
 
 def safe_path(rel):
@@ -67,20 +71,62 @@ def probe(path):
         return {}
 
 
+def project_of(p):
+    """Project label for a video: its folder relative to ROOT, minus trailing Previews/Edit folders."""
+    parts = rel_of(os.path.dirname(p)).split("/")
+    while len(parts) > 1 and parts[-1].lower() in ("previews", "edit"):
+        parts.pop()
+    return "/".join(parts) if parts != ["."] else os.path.basename(ROOT)
+
+
 def list_videos():
+    """Edited videos only: previews the AI made (they have an edit list or review file) and anything in a Finished folder."""
     vids = []
     for d, dirs, files in os.walk(ROOT):
         dirs[:] = [x for x in dirs if x not in SKIP_DIRS and not x.startswith(".")]
+        finished = "finished" in rel_of(d).lower().split("/")
         for f in files:
             if os.path.splitext(f)[1].lower() in VIDEO_EXT:
                 p = os.path.join(d, f)
+                has_review, has_edits = os.path.exists(sidecar(p, "review")), os.path.exists(sidecar(p, "edits"))
+                if not (has_review or has_edits or finished):
+                    continue
                 rv = read_json(sidecar(p, "review"), {}) or {}
-                vids.append({"path": rel_of(p), "mtime": os.path.getmtime(p), "size": os.path.getsize(p),
-                             "has_review": os.path.exists(sidecar(p, "review")), "has_edits": os.path.exists(sidecar(p, "edits")),
+                vids.append({"path": rel_of(p), "project": project_of(p), "finished": finished, "mtime": os.path.getmtime(p), "size": os.path.getsize(p),
+                             "has_review": has_review, "has_edits": has_edits,
                              "status": rv.get("status"), "open_notes": sum(1 for n in rv.get("notes", []) if n.get("status") != "done")})
-    # previews Claude made for review first, then newest
-    vids.sort(key=lambda v: (not v["has_edits"], not v["has_review"], -v["mtime"]))
-    return vids[:300]
+    vids.sort(key=lambda v: -v["mtime"])
+    return vids[:500]
+
+
+def ancestors(video_rel):
+    """The video's folder and each parent up to ROOT (nearest first)."""
+    d = os.path.dirname(safe_path(video_rel))
+    while True:
+        yield d
+        if d == ROOT or os.path.dirname(d) == d:
+            return
+        d = os.path.dirname(d)
+
+
+def locate(source, video_rel):
+    """Find a segment's source clip: as a path relative to the video's project (any parent folder), else by file name, nearest folder first."""
+    rel = source.replace("\\", "/")
+    for d in ancestors(video_rel):
+        p = os.path.realpath(os.path.join(d, rel.replace("/", os.sep)))
+        if os.path.isfile(p) and os.path.commonpath([p, ROOT]) == ROOT:
+            return p
+    name, searched = rel.split("/")[-1].lower(), set()
+    for top in ancestors(video_rel):
+        for d, dirs, files in os.walk(top):
+            if d in searched:
+                dirs[:] = []; continue
+            searched.add(d)
+            dirs[:] = [x for x in dirs if x not in SKIP_DIRS and not x.startswith(".")]
+            for f in files:
+                if f.lower() == name:
+                    return os.path.join(d, f)
+    return None
 
 
 def make_proxy(src):
@@ -102,6 +148,18 @@ def make_proxy(src):
                 raise RuntimeError(r.stderr[-400:])
             os.replace(tmp, out)
     return out
+
+
+def claude_listening(video_rel=None):
+    """True if a wait_for_review.py heartbeat is fresh in the video's project (any folder from the video up to ROOT)."""
+    dirs = ancestors(video_rel) if video_rel else [ROOT]
+    for d in dirs:
+        try:
+            if time.time() - os.path.getmtime(os.path.join(d, ".review_cache", "claude_listening")) < 8:
+                return True
+        except OSError:
+            pass
+    return False
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -164,20 +222,22 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_file(os.path.join(APP_DIR, "index.html"))
             if u.path == "/api/config":
                 return self.send_json({"root": ROOT, "project": os.path.basename(ROOT), "initial": self.server.initial_video})
+            if u.path == "/api/listening":  # is an AI session waiting on this review (wait_for_review.py heartbeat)?
+                return self.send_json({"listening": claude_listening(q.get("v", [None])[0])})
+            if u.path == "/api/ping":  # the open tab checks in every few seconds; also tells it which video to switch to
+                STATE["last_ping"] = time.time()
+                return self.send_json({"listening": claude_listening(q.get("v", [None])[0]), "focus": STATE["focus"]})
+            if u.path == "/api/status":  # for open_review.py: is a tab open right now?
+                return self.send_json({"app": "edit-review", "root": ROOT, "tab_open": time.time() - STATE["last_ping"] < 7})
             if u.path == "/api/videos":
                 return self.send_json(list_videos())
             if u.path == "/api/review":
                 v = safe_path(q["v"][0])
                 return self.send_json({"path": rel_of(v), "info": probe(v), "review": read_json(sidecar(v, "review")),
                                        "edits": read_json(sidecar(v, "edits")), "words": read_json(sidecar(v, "words"))})
-            if u.path == "/api/locate":  # find a source clip by file name anywhere in the project
-                name = q["name"][0].lower()
-                for d, dirs, files in os.walk(ROOT):
-                    dirs[:] = [x for x in dirs if x not in SKIP_DIRS and not x.startswith(".")]
-                    for f in files:
-                        if f.lower() == name:
-                            return self.send_json({"path": rel_of(os.path.join(d, f))})
-                return self.send_json({"error": "not found"}, 404)
+            if u.path == "/api/locate":  # find a segment's source clip for the Original footage toggle
+                p = locate(q["name"][0], q["v"][0])
+                return self.send_json({"path": rel_of(p)}) if p else self.send_json({"error": "not found"}, 404)
             if u.path.startswith("/media/"):
                 p = safe_path(u.path[len("/media/"):])
                 return self.send_file(p) if os.path.isfile(p) else self.send_error(404)
@@ -199,6 +259,10 @@ class Handler(BaseHTTPRequestHandler):
         if self.headers.get("Origin") not in (None, f"http://127.0.0.1:{self.server.server_port}", f"http://localhost:{self.server.server_port}"):
             return self.send_error(403)  # only this page may write
         try:
+            if u.path == "/api/focus":  # from open_review.py: switch the open tab to this video
+                v = safe_path(json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")["v"])
+                STATE["focus"] = {"v": rel_of(v), "id": time.time()}
+                return self.send_json({"ok": True, "focus": STATE["focus"]})
             if u.path == "/api/review":
                 v = safe_path(q["v"][0])
                 data = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
@@ -219,6 +283,7 @@ def main():
     ap.add_argument("--video", help="video to open first (path relative to root, or absolute inside it)")
     ap.add_argument("--port", type=int, default=8765)
     ap.add_argument("--no-open", action="store_true", help="don't open a browser tab")
+    ap.add_argument("--exact-port", action="store_true", help="fail if --port is busy instead of trying the next one")
     a = ap.parse_args()
     ROOT = os.path.realpath(a.root)
     initial = None
@@ -228,7 +293,7 @@ def main():
     if not shutil.which("ffmpeg"):
         print("note: ffmpeg not on PATH - the Original footage toggle needs it for HEVC clips")
     srv = None
-    for port in range(a.port, a.port + 20):
+    for port in range(a.port, a.port + (1 if a.exact_port else 20)):
         try:
             srv = ThreadingHTTPServer(("127.0.0.1", port), Handler); break
         except OSError:
