@@ -25,6 +25,7 @@ PROJECTS = setting("projects_dir", HOME + "/Video Edits")
 FOOTAGE = setting("footage_dir")
 MUSIC = setting("music_dir", PROJECTS + "/Music") + "/"
 SFX = setting("sfx_dir", PROJECTS + "/Sound FX") + "/"
+OUTPUT_CHOSEN = bool(setting("output_dir")) and os.path.isdir(setting("output_dir"))   # asked on the first video
 FINISHED = setting("output_dir", PROJECTS + "/Finished")
 BRAND = setting("brand_file")
 

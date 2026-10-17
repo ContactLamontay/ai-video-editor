@@ -31,8 +31,10 @@ if cfg:
     fd = cfg.get("footage_dir", "")
     line(bool(fd) and os.path.isdir(fd), f"footage library {fd or '(not set)'}",
          "install Google Drive for Desktop, sign in with the company account, then re-run setup")
-    for k in ("projects_dir", "output_dir"):
-        p = cfg.get(k, ""); line(bool(p) and os.path.isdir(p), f"{k} {p or '(not set)'}", "re-run setup")
+    p = cfg.get("projects_dir", ""); line(bool(p) and os.path.isdir(p), f"projects_dir {p or '(not set)'}", "re-run setup")
+    p = cfg.get("output_dir", "")
+    line(bool(p) and os.path.isdir(p), f"finished videos folder {p or '(not chosen yet)'}",
+         "the AI asks where finished videos should go on the first video" if not p else "folder is missing - the AI asks again on the next video", False)
     bf = cfg.get("brand_file", "")
     line(bool(bf) and os.path.isfile(bf), f"brand rules {bf or '(not set)'}", "re-run setup and point it at the brand.md you were given", False)
     for k in ("music_dir", "sfx_dir"):

@@ -1,8 +1,9 @@
 # Writes ~/.ai-video-editor/config.json. Finds the footage library by itself: it searches Google Drive for the
 # brand file (brand.md), and the folder that holds it is the footage folder. An optional ai-video-editor.json next
 # to brand.md supplies the rest, so nobody has to type paths or keys:
-#   {"elevenlabs_api_key": "...", "output_dir": "AI Edits", "music_dir": "Music", "sfx_dir": "Sound FX"}
-#   (folders are relative to the brand.md folder, or absolute)
+#   {"elevenlabs_api_key": "...", "music_dir": "Music", "sfx_dir": "Sound FX", "output_dir": "Finished"}
+#   (folders are relative to the brand.md folder, or absolute). Without output_dir, the AI asks the user where
+#   finished videos should go the first time they make a video.
 #
 #   python configure.py           asks, with everything it found filled in as defaults (Enter accepts)
 #   python configure.py --auto    asks nothing - for the AI to run. Prints "NEED: <what>" lines and exits 2 when
@@ -89,8 +90,7 @@ s = load(os.path.join(footage, SETTINGS)) if footage else {}
 if s: print(f"Using settings from {os.path.join(footage, SETTINGS)}")
 brand = os.path.join(footage, BRAND) if footage and os.path.isfile(os.path.join(footage, BRAND)) else old.get("brand_file", "")
 projects = ask("Where to keep edit projects on this computer", old.get("projects_dir") or os.path.join(HOME, "Video Edits"))
-output = ask("Where finished videos go", resolve(footage, s.get("output_dir")) or old.get("output_dir")
-             or (os.path.join(footage, "AI Edits") if footage else os.path.join(projects, "Finished")))
+output = ask("Where finished videos go (Enter = the AI asks on the first video)", resolve(footage, s.get("output_dir")) or old.get("output_dir", ""))
 music = ask("Music folder (Enter to skip)", resolve(footage, s.get("music_dir")) or old.get("music_dir", ""))
 sfx = ask("Sound effects folder (Enter to skip)", resolve(footage, s.get("sfx_dir")) or old.get("sfx_dir", ""))
 key = s.get("elevenlabs_api_key") or old.get("elevenlabs_api_key", "")
@@ -100,7 +100,7 @@ if not AUTO:
 if not key and footage:   # the key lives next to brand.md, so only ask once that's found
     need.append(f"elevenlabs-key: no ElevenLabs key - add \"elevenlabs_api_key\" to {SETTINGS} next to {BRAND} in Google Drive")
 
-for d in (projects, output):
+for d in [x for x in (projects, output) if x]:
     try: os.makedirs(d, exist_ok=True)
     except OSError as e: need.append(f"folder: can't create {d} ({e})")
 
@@ -112,7 +112,7 @@ if footage or not AUTO:   # never write an empty config in auto mode - the setup
     try: os.chmod(CFG_F, 0o600)
     except OSError: pass
     print(f"Saved settings to {CFG_F}")
-    print(f"  footage: {footage}\n  finished videos: {output}\n  projects: {projects}\n  brand file: {brand or '(none)'}")
+    print(f"  footage: {footage}\n  finished videos: {output or '(not chosen yet - the AI asks on the first video)'}\n  projects: {projects}\n  brand file: {brand or '(none)'}")
 
 for n in need: print("NEED: " + n)
 sys.exit(2 if need else 0)

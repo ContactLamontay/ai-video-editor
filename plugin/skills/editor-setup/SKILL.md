@@ -11,8 +11,8 @@ plain, and never show them paths, JSON or terminal output unless something break
 ## How it finds everything (nothing to type)
 Whoever manages the system has put two files in the **top folder of the footage** in the company Google Drive:
 - `brand.md` - the brand rules. The setup searches Google Drive for it; **the folder that holds it becomes the
-  footage folder**, and finished videos go to `AI Edits` inside it.
-- `ai-video-editor.json` - `{"elevenlabs_api_key": "...", "output_dir": "...", "music_dir": "...", "sfx_dir": "..."}`
+  footage folder**. Where finished videos go is asked on the first video (the `video-edit` skill).
+- `ai-video-editor.json` - `{"elevenlabs_api_key": "...", "music_dir": "...", "sfx_dir": "..."}`
   (folders relative to that folder). Only the key is required.
 
 ## Steps

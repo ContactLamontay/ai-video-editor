@@ -5,7 +5,10 @@
 #                                  only after the editor approves the preview
 import json, os, sys, glob, shutil, subprocess
 import enc
-from common import VLOG, ED, WORK, CACHE, PREVIEW, FPS, FPS_STR, NAME, FINISHED, SHORT, FW, RW, TAG, clips
+from common import VLOG, ED, WORK, CACHE, PREVIEW, FPS, FPS_STR, NAME, FINISHED, OUTPUT_CHOSEN, SHORT, FW, RW, TAG, clips
+if not PREVIEW and not OUTPUT_CHOSEN:
+    sys.exit('No finished-videos folder chosen yet. Ask the user where finished videos should go, save it with\n'
+             '  python settings.py output_dir "<folder>"\nthen run master.py again.')
 P = json.load(open(WORK + "/plan.json")); C = json.load(open(WORK + "/caps.json")) if os.path.exists(WORK + "/caps.json") else []
 SEGD = f"{CACHE}/segments_{TAG}"; K = FW / RW
 WORDS = SHORT or os.environ.get("WORDCAPS") == "1"

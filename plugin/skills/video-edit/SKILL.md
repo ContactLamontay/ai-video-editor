@@ -37,6 +37,13 @@ The video encoder is picked automatically (NVIDIA / AMD / Intel / Apple / softwa
 
 Tell the editor what you're doing and roughly how long each wait is.
 
+**First video on this computer: ask where finished videos go.** If `output_dir` in the config is empty (or the folder
+no longer exists), ask once, in plain words, together with your first question about the video: "Where should I put
+finished videos?" Suggest a folder in their Google Drive next to the footage (e.g. a `Finished videos` folder inside
+`footage_dir`, so the whole team sees them), or a folder on this computer. Save their answer with
+`python settings.py output_dir "<folder>"` (a folder name alone is created inside `footage_dir`) and confirm in one
+line. Never ask again once it's set; they can change it any time by asking ("put finished videos in ...").
+
 0. **Gather footage.** Ask what the video is (product ad, UGC testimonial, talking head, YouTube) and which shoot.
    Find clips with `python library.py find <words>` (index of the Drive library; `scan` first if it's empty or stale,
    `scan "<subfolder>" --thumbs` to get thumbnail strips you can Read and then `tag`). Create
@@ -62,6 +69,7 @@ Tell the editor what you're doing and roughly how long each wait is.
    claims, music licensing).
 6. **Changes**: edit `edl.py`, rebuild, rerun step 5 (a new round). Unchanged cuts are skipped automatically.
 7. **Final, only after approval**: `python render.py` -> `python mix.py` -> `python master.py` (captions are shared).
+   The final goes to `output_dir`; master.py refuses to run until one is chosen (see above). Tell them where it is.
    Short ~1-2 min; 4K landscape can take 30+ min on a laptop - offer 1080p/1440p. Chain in one background command.
 
 ## Content rules
