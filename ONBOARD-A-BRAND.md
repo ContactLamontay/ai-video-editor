@@ -7,12 +7,13 @@ Goal: the brand's people do nothing but sign in to Google Drive and say "set me 
    brand in trouble. Keep your copy in `Content/Clients/brand-files/<brand>-brand.md`, **not in this repo** (anyone
    can read the repo).
 2. **Two files in their Google Drive** (no sorting or moving footage). Find the **top folder that holds their
-   footage folders** and upload into it, at its top level:
+   footage folders**, make a folder called **AI video editor** inside it, and upload into that:
    - `brand.md` - the brand file, renamed.
    - `ai-video-editor.json` - copy `Content/Clients/brand-files/ai-video-editor.json`, paste the brand's ElevenLabs
      key into it. Optional: `"music_dir"` / `"sfx_dir"` (folder names inside that top folder). Leave out
      `"output_dir"`: Claude asks each person where finished videos should go on their first video.
-   The setup searches their Drive for `brand.md` (up to 5 folders deep): that folder becomes the footage library.
+   The setup searches their Drive for `brand.md` (up to 5 folders deep); the folder *above* `AI video editor`
+   becomes the footage library. (`brand.md` loose in the top footage folder works too.)
    Only one `brand.md` in their Drive, please.
 3. **Their AI.** Claude: every Team seat includes Claude Code; they need the Claude desktop app. Codex: a ChatGPT plan
    with Codex.

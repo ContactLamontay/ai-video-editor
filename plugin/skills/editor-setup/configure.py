@@ -1,20 +1,24 @@
 # Writes ~/.ai-video-editor/config.json. Finds the footage library by itself: it searches Google Drive for the
-# brand file (brand.md), and the folder that holds it is the footage folder. An optional ai-video-editor.json next
-# to brand.md supplies the rest, so nobody has to type paths or keys:
+# brand file (brand.md). The footage folder is:
+#   - the folder that holds brand.md, or
+#   - the folder above it, when brand.md sits in its own "AI video editor" folder (any case, spaces/-/_ allowed), or
+#   - "footage_dir" from the settings file (relative to the brand.md folder, e.g. "..", or absolute).
+# An optional ai-video-editor.json next to brand.md supplies the rest, so nobody has to type paths or keys:
 #   {"elevenlabs_api_key": "...", "music_dir": "Music", "sfx_dir": "Sound FX", "output_dir": "Finished"}
-#   (folders are relative to the brand.md folder, or absolute). Without output_dir, the AI asks the user where
-#   finished videos should go the first time they make a video.
+#   (music/sfx/output folders are relative to the footage folder, or absolute). Without output_dir, the AI asks the
+#   user where finished videos should go the first time they make a video.
 #
 #   python configure.py           asks, with everything it found filled in as defaults (Enter accepts)
 #   python configure.py --auto    asks nothing - for the AI to run. Prints "NEED: <what>" lines and exits 2 when
 #                                 something only the user can do is missing.
 #   --drive-root <dir>            search this folder instead of the detected Google Drive (repeatable; for testing)
-import getpass, json, os, string, sys
+import getpass, json, os, re, string, sys
 
 HOME = os.path.expanduser("~")
 CFG_DIR = os.path.join(HOME, ".ai-video-editor"); CFG_F = os.path.join(CFG_DIR, "config.json")
 BRAND, SETTINGS = "brand.md", "ai-video-editor.json"
 MAX_DEPTH = 5
+KIT_NAME = re.compile(r"^ai[\s_-]*video[\s_-]*editor\b", re.I)   # "AI video editor", "AI-Video-Editor files", ...
 args = sys.argv[1:]
 AUTO = "--auto" in args
 FORCED = [args[i + 1] for i, a in enumerate(args) if a == "--drive-root" and i + 1 < len(args)]
@@ -71,9 +75,18 @@ if not roots and not FORCED:
 
 hits = find_brand(roots) if roots else []
 footage = old.get("footage_dir", "") if old.get("footage_dir") and os.path.isdir(old.get("footage_dir")) else ""
+kit = os.path.dirname(old.get("brand_file", "")) if old.get("brand_file") else ""   # folder holding brand.md + settings
 if hits:
-    footage = os.path.normpath(hits[0])
-    print(f"Found the brand file in: {footage}")
+    kit = os.path.normpath(hits[0])
+    ks = load(os.path.join(kit, SETTINGS))
+    if ks.get("footage_dir"):                                   # settings file says where the footage is
+        footage = resolve(kit, ks["footage_dir"])
+    elif KIT_NAME.match(os.path.basename(kit)):                 # brand.md in its own "AI video editor" folder
+        footage = os.path.dirname(kit)
+    else:                                                       # brand.md right in the footage folder
+        footage = kit
+    print(f"Found the brand file in: {kit}")
+    if footage != kit: print(f"Footage folder: {footage}")
     if len(hits) > 1: print("  (also found brand.md in: " + "; ".join(hits[1:4]) + " - using the first)")
 elif roots:
     need.append(f"brand-file: no {BRAND} found in Google Drive (searched {len(roots)} drive(s), {MAX_DEPTH} folders deep). "
@@ -86,9 +99,10 @@ if not AUTO:
         print("Can't find that folder - copy its path from File Explorer / Finder.")
     need = [n for n in need if not n.startswith("brand-file")]
 
-s = load(os.path.join(footage, SETTINGS)) if footage else {}
-if s: print(f"Using settings from {os.path.join(footage, SETTINGS)}")
-brand = os.path.join(footage, BRAND) if footage and os.path.isfile(os.path.join(footage, BRAND)) else old.get("brand_file", "")
+kit = kit or footage
+s = load(os.path.join(kit, SETTINGS)) if kit else {}
+if s: print(f"Using settings from {os.path.join(kit, SETTINGS)}")
+brand = os.path.join(kit, BRAND) if kit and os.path.isfile(os.path.join(kit, BRAND)) else old.get("brand_file", "")
 projects = ask("Where to keep edit projects on this computer", old.get("projects_dir") or os.path.join(HOME, "Video Edits"))
 output = ask("Where finished videos go (Enter = the AI asks on the first video)", resolve(footage, s.get("output_dir")) or old.get("output_dir", ""))
 music = ask("Music folder (Enter to skip)", resolve(footage, s.get("music_dir")) or old.get("music_dir", ""))
