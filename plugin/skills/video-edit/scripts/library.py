@@ -8,7 +8,7 @@ import hashlib, json, os, subprocess, sys
 from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault("VLOG_DIR", os.path.join(os.path.expanduser("~"), ".ai-video-editor", "library"))
-from common import FOOTAGE, CFG_DIR, VIDEO_EXT
+from common import FOOTAGE, FINISHED, CFG_DIR, VIDEO_EXT
 
 LIB = os.path.join(CFG_DIR, "library"); TH = os.path.join(LIB, "thumbs"); IDX = os.path.join(LIB, "index.json")
 os.makedirs(TH, exist_ok=True)
@@ -36,7 +36,11 @@ def thumbs(cid, p, dur):
 def scan(sub="", with_thumbs=False):
     root = os.path.join(FOOTAGE, sub) if sub else FOOTAGE
     if not root or not os.path.isdir(root): sys.exit(f"footage folder not found: {root!r} (check footage_dir in {CFG_DIR}/config.json)")
-    files = [os.path.join(d, f) for d, _, fs in os.walk(root) for f in fs if f.lower().endswith(VIDEO_EXT) and not f.startswith(".")]
+    skip = os.path.normcase(os.path.realpath(FINISHED))      # finished videos can live inside the footage folder
+    files = []
+    for d, dirs, fs in os.walk(root):
+        dirs[:] = [x for x in dirs if not x.startswith(".") and os.path.normcase(os.path.realpath(os.path.join(d, x))) != skip]
+        files += [os.path.join(d, f) for f in fs if f.lower().endswith(VIDEO_EXT) and not f.startswith(".")]
     todo = []
     for p in files:
         st = os.stat(p); cid = hashlib.md5(p.lower().encode()).hexdigest()[:10]

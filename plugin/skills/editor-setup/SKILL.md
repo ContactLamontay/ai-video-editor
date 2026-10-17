@@ -1,30 +1,44 @@
 ---
 name: editor-setup
-description: Set up or re-check a computer for the AI video editor (Python, FFmpeg, Google Drive footage folder, brand file, ElevenLabs key). Use when the editor asks to set up, install, "set me up", "is everything working", when ~/.ai-video-editor/config.json is missing, or when an edit script fails because ffmpeg, Python, a package, the footage folder or the key is missing.
+description: Set up or re-check a computer for the AI video editor - installs Python, FFmpeg and Google Drive for Desktop, finds the footage folder in Google Drive by itself, reads the ElevenLabs key from the Drive settings file, checks everything. Use when the user asks to set up, install, "set me up", "is everything working", when ~/.ai-video-editor/config.json is missing or incomplete, or when an edit script fails because ffmpeg, Python, a package, the footage folder or the key is missing.
 ---
 
 # Editor setup
 
-Get this computer ready for the AI video editor. Keep it friendly and non-technical: editors aren't developers.
+The person using this is usually a business owner, not a developer: do the work for them, keep messages short and
+plain, and never show them paths, JSON or terminal output unless something breaks.
 
-1. **Check first.** If Python works, run the checker in this skill's folder:
-   `python "<this skill's folder>/doctor.py"` (`python3` on Mac). If it prints `READY`, tell the editor they're set
-   and suggest a first request, like "Edit the testimonial clips from the March shoot into a 20-second Reel". Stop.
-2. **Otherwise** explain in one or two plain sentences what's missing, then give them the setup command in its own
-   code block. It asks questions (folders, key), so **they run it in a terminal, not you**:
-   - Windows (PowerShell):
-     `powershell -NoProfile -ExecutionPolicy Bypass -File "<this skill's folder, as a C:\ path>\setup-windows.ps1"`
-   - Mac (Terminal): `bash "<this skill's folder>/setup-mac.sh"`
-   Use the real absolute path of this skill's folder.
-3. **Before they run it** they need:
-   - **Google Drive for Desktop** installed and signed in with the company Google account
-     (https://www.google.com/drive/download/), so the footage shows up as a folder.
-   - The **brand file** (`brand.md`) they were given. Easiest: saved in the footage folder on Drive, where the setup
-     finds it by itself.
-   - The **ElevenLabs API key** from whoever manages the account. Never ask them to paste the key into chat - the
-     script asks for it with hidden typing.
-4. **After** they say it finished, run the checker again and help fix any `FAIL` line. Tell them to restart Claude /
-   Codex once so new installs are picked up.
+## How it finds everything (nothing to type)
+Whoever manages the system has put two files in the **top folder of the footage** in the company Google Drive:
+- `brand.md` - the brand rules. The setup searches Google Drive for it; **the folder that holds it becomes the
+  footage folder**, and finished videos go to `AI Edits` inside it.
+- `ai-video-editor.json` - `{"elevenlabs_api_key": "...", "output_dir": "...", "music_dir": "...", "sfx_dir": "..."}`
+  (folders relative to that folder). Only the key is required.
 
-The script is safe to re-run: it keeps previous answers as defaults (use this to change folders, the brand file or
-the key later).
+## Steps
+1. **Check first.** If Python works: `python "<this skill's folder>/doctor.py"` (`python3` on Mac). `READY` means
+   done: tell them they're set and suggest a first request ("Make a 20-second Reel from the newest testimonial
+   footage"). Stop.
+2. **Run the setup yourself, no questions asked** (tell them it takes a few minutes, mostly waiting; run it in the
+   background or with a long timeout):
+   - Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File "<this skill's folder, C:\ path>\setup-windows.ps1" -Auto`
+   - Mac: `bash "<this skill's folder>/setup-mac.sh" --auto`
+   If Windows asks for permission to install something, tell them to click **Yes**.
+3. **Handle what it prints**, then run it again until it prints `READY`:
+   - `NEED: google-drive-signin` - the Google Drive window is open (or the Drive icon near the clock / in the menu bar).
+     Ask them to sign in with their **company Google account** and tell you when their Google Drive shows up in File
+     Explorer / Finder. Drive can take a minute to appear after signing in.
+   - `NEED: google-drive-install` (Mac) - they download Google Drive for Desktop from
+     https://www.google.com/drive/download/, install it and sign in (it asks for their Mac password, so they do it).
+   - `NEED: homebrew` (Mac) - give them the one command it prints to paste into the Terminal app; it asks for their
+     Mac password. Then run setup again.
+   - `NEED: brand-file` - signed in with the right Google account? Drive may still be loading the folder list - wait
+     a minute and run again. If it still fails, tell them to contact whoever set up the system: `brand.md` needs to be
+     in the top footage folder of their Google Drive.
+   - `NEED: elevenlabs-key` - the settings file next to `brand.md` is missing or has no key; same contact.
+   - `NEED: winget` / `NEED: python` - give them the fix it prints in plain words.
+4. **When it prints `READY`**, tell them to **quit and reopen the Claude / Codex app once** (so newly installed
+   programs are found), then just ask for a video.
+
+Never ask for the ElevenLabs key in chat. If they want to set it up by hand instead, the same scripts without
+`-Auto` / `--auto` ask each question with the found values filled in; they run those in a terminal themselves.

@@ -1,16 +1,33 @@
 # Onboarding a new brand (for Josh)
 
+Goal: the brand's people do nothing but sign in to Google Drive and say "set me up".
+
 1. **Brand file.** Get their decks / brand guide / product docs. Ask Claude: "read these and write a brand file from
    `brands/TEMPLATE.md`". Check the approved claims and claims-to-avoid yourself; that's the part that can get the
-   brand in trouble. Keep your copy in `Content/Clients/brand-files/<brand>-brand.md`, **not in this repo** (every
-   client can read the repo).
-2. **Their Google Drive.** Ask for a Shared Drive (or folder) with the footage, shared with each editor. Put the brand
-   file in its root as `brand.md` - setup finds it there automatically, and the owner can update it.
-3. **Their AI.**
-   - Claude: each editor needs a Claude plan that includes Claude Code, and the desktop app.
-   - Codex: each editor needs a ChatGPT plan that includes Codex, and the Codex app or CLI.
-4. **Repo.** The repo is public, so editors install it without an invite. Never put brand data in it.
-5. **ElevenLabs.** The brand creates its own ElevenLabs account and gives the key to its editors.
-6. **Send the guide**: `EDITOR-GUIDE-CLAUDE.md` or `EDITOR-GUIDE-CODEX.md` . Offer a
-   15-minute call for the first editor's setup.
-7. **First edit together.** Have one editor make one real video on a call. Fix anything that's off in their brand file.
+   brand in trouble. Keep your copy in `Content/Clients/brand-files/<brand>-brand.md`, **not in this repo** (anyone
+   can read the repo).
+2. **Two files in their Google Drive** (no sorting or moving footage). Find the **top folder that holds their
+   footage folders** and upload into it, at its top level:
+   - `brand.md` - the brand file, renamed.
+   - `ai-video-editor.json` - copy `Content/Clients/brand-files/ai-video-editor.json`, paste the brand's ElevenLabs
+     key into it. Optional: `"music_dir"` / `"sfx_dir"` (folder names inside that top folder), `"output_dir"`
+     (default `AI Edits`, created there for finished videos).
+   The setup searches their Drive for `brand.md` (up to 5 folders deep): that folder becomes the footage library.
+   Only one `brand.md` in their Drive, please.
+3. **Their AI.** Claude: every Team seat includes Claude Code; they need the Claude desktop app. Codex: a ChatGPT plan
+   with Codex.
+4. **Plugin into their Claude org.** Ask the org **Owner** to add this in the admin console's Claude Code managed
+   settings (then it installs itself for everyone):
+   ```json
+   {
+     "extraKnownMarketplaces": {
+       "ai-video-editor": { "source": { "source": "github", "repo": "ContactLamontay/ai-video-editor" } }
+     },
+     "enabledPlugins": { "ai-video-editor@ai-video-editor": true }
+   }
+   ```
+   No Owner available: each person types the two `/plugin` commands from `EDITOR-GUIDE-CLAUDE.md` once.
+5. **Tell each person:** "Open the Claude app, Code tab, and say *set me up*. Click Yes if Windows asks, and sign in
+   to Google Drive with your company account when its window opens. Then restart Claude." Claude does the rest.
+6. **First edit together.** Have them make one real video. Fix anything that's off in their brand file (edit
+   `brand.md` in their Drive - everyone gets the change on the next edit).

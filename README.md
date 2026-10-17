@@ -54,9 +54,11 @@ ONBOARD-A-BRAND.md                  your checklist for a new client
 ```
 
 ## How brands differ
-Only the **brand file**. Each brand's `brand.md` sits in the root of its Google Drive footage folder; the setup
-script records its path (`brand_file` in `~/.ai-video-editor/config.json`) and every edit reads it. This repo holds
-no brand data, so all clients can share it. Keep your brand files in `Content/Clients/brand-files/`.
+Only two files in the brand's Google Drive, at the top of the folder that holds their footage: `brand.md` (brand
+rules) and `ai-video-editor.json` (ElevenLabs key, optional folders). Setup searches Drive for `brand.md`, so that
+folder becomes the footage library with no paths typed, and Claude can run the whole setup itself (`-Auto` /
+`--auto`). This repo holds no brand data, so all clients share it. Keep your copies in `Content/Clients/brand-files/`.
+See ONBOARD-A-BRAND.md.
 
 ## Publish
 1. Working copy: C:/Users/Josh/Projects/ai-video-editor (kept out of iCloud).
