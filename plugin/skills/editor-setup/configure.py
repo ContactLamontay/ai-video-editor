@@ -18,6 +18,10 @@
 #   python configure.py [--footage NAME]          asks, with everything it found filled in as defaults
 #   python configure.py --auto [--footage NAME]   asks nothing - for the AI. Prints "NEED: <what>" lines and exits 2
 #                                                 when something only the user can provide is missing.
+#   --local                                       no Google Drive: footage is a folder on this computer (a full
+#                                                 path, or a name found in Videos / Movies / Desktop / Documents /
+#                                                 Downloads / Pictures). Remembered in the config; --drive switches back.
+#                                                 With no brand.md, a blank one is made for the user to fill in.
 #   --drive-root <dir>                            search this folder instead of Google Drive (repeatable; testing)
 import getpass, glob, json, os, re, shutil, string, sys
 
@@ -32,6 +36,8 @@ def arg(name): return next((args[i + 1] for i, a in enumerate(args) if a == name
 FORCED = [args[i + 1] for i, a in enumerate(args) if a == "--drive-root" and i + 1 < len(args)]
 WANT = arg("--footage").strip().strip('"')
 BLOCKED = []   # folders macOS wouldn't let us read (privacy permission)
+HERE = os.path.dirname(os.path.abspath(__file__))
+LOCAL_DIRS = ("Videos", "Movies", "Desktop", "Documents", "Downloads", "Pictures")
 
 # Google Drive's own folder names depend on the computer's language ("My Drive" / "Mijn Drive" / "Meine Ablage"...)
 MY_NAMES = {"my drive", "mijn drive", "meine ablage", "mon drive", "mi unidad", "il mio drive", "meu drive", "min enhet",
@@ -141,10 +147,15 @@ def newest(pattern_dirs, patterns):
     return max(files, key=os.path.getmtime) if files else ""
 
 old = load(CFG_F)
+LOCAL = "--local" in args or (bool(old.get("local")) and "--drive" not in args)
 need = []
 os.makedirs(CFG_DIR, exist_ok=True)
-roots = drive_roots()
-if not roots and not FORCED:
+if LOCAL:   # footage on this computer: search the usual home folders instead of Google Drive
+    roots = [os.path.join(HOME, d) for d in LOCAL_DIRS if os.path.isdir(os.path.join(HOME, d))]
+    print("No Google Drive - footage is in a folder on this computer")
+else:
+    roots = drive_roots()
+if not roots and not FORCED and not LOCAL:
     need.append("google-drive: Google Drive for Desktop isn't signed in on this computer (no My Drive / Shared drives found)")
 if BLOCKED:
     need.append("drive-permission: the Mac isn't letting Claude / Codex read Google Drive. Open System Settings -> Privacy & "
@@ -157,7 +168,7 @@ dl_dirs = [os.path.join(HOME, d) for d in ("Downloads", "Desktop", "Documents")]
 dl_brand = newest(dl_dirs, ["brand.md", "brand (*).md", "brand-*.md", "*-brand.md"])   # brand.md, brand (1).md, fitsleeps-brand.md
 dl_settings = newest(dl_dirs, ["ai-video-editor.json", "ai-video-editor (*).json", "ai-video-editor*.json"])
 drive_kit = ""
-if not (dl_brand and dl_settings) and roots:
+if not (dl_brand and dl_settings) and roots and not LOCAL:
     hits = find_brand(roots)
     if hits:
         drive_kit = os.path.normpath(hits[0])
@@ -167,6 +178,9 @@ for src, dst in ((dl_brand or (drive_kit and os.path.join(drive_kit, BRAND)), lo
     if src and os.path.isfile(src) and (not os.path.isfile(dst) or os.path.getmtime(src) > os.path.getmtime(dst)):
         shutil.copy2(src, dst); print(f"Saved a private copy of {os.path.basename(src)} (from {pretty(os.path.dirname(src))})")
 s = load(local_settings)
+if LOCAL and not os.path.isfile(local_brand) and os.path.isfile(os.path.join(HERE, "blank-brand.md")):
+    shutil.copy2(os.path.join(HERE, "blank-brand.md"), local_brand)   # a blank style file the user fills in over time
+    print(f"Made a blank style file for you to fill in: {local_brand}")
 brand = local_brand if os.path.isfile(local_brand) else ""
 
 # ---- footage folder ----
@@ -181,6 +195,10 @@ if WANT:
         elif found:
             need.append(f"footage-choose: more than one folder matches \"{WANT}\": " + " | ".join(pretty(f) for f in found)
                         + " - ask the user which one, then run setup again with that full path")
+        elif LOCAL:
+            need.append(f"footage-not-found: no folder called \"{WANT}\" in {', '.join(LOCAL_DIRS)} on this computer. "
+                        "Ask the user where the folder is (they can drag it into the chat, or copy its path from File "
+                        "Explorer / Finder), then run setup again with that full path")
         else:
             need.append(f"footage-not-found: no folder called \"{WANT}\" in Google Drive. What this computer can see: "
                         f"{visible(roots)}. Check the spelling with the user (or Google Drive may still be loading - wait "
@@ -194,7 +212,8 @@ if not footage and old.get("footage_dir") and os.path.isdir(old["footage_dir"]):
     footage = old["footage_dir"]
 if not AUTO:
     while True:
-        a = ask("Footage folder - its name in Google Drive, or the full path", footage)
+        a = ask("Footage folder - its full path, or its name if it's in " + "/".join(LOCAL_DIRS) if LOCAL
+                else "Footage folder - its name in Google Drive, or the full path", footage)
         if a and os.path.isdir(a): footage = a; break
         found = find_folder(roots, a) if a and roots else []
         if len(found) == 1: footage = found[0]; print("Found " + pretty(footage)); break
@@ -202,6 +221,9 @@ if not AUTO:
     need = [n for n in need if not n.startswith("footage")]
 if footage:
     print("Footage folder: " + pretty(footage))
+elif LOCAL and not any(n.startswith("footage") for n in need):
+    need.append("footage-folder: ask the user which folder on this computer holds their footage (its name if it's in "
+                "Videos / Desktop / Documents, otherwise the full path), then run setup again with it")
 elif roots and not any(n.startswith("footage") for n in need):
     need.append("footage-folder: ask the user which Google Drive folder holds their footage (just its name, e.g. "
                 "\"Bracelet\"), then run setup again with that name")
@@ -218,7 +240,11 @@ if not AUTO:
 if not brand:
     need.append(f"brand-file: no {BRAND} on this computer yet - the user saves the {BRAND} file they were sent (e.g. the "
                 "email attachment) to their Downloads folder, then run setup again")
-if not key:
+if not key and LOCAL:
+    need.append(f"elevenlabs-key: no ElevenLabs key yet. The user signs up at elevenlabs.io, creates an API key (Developers "
+                f"-> API keys), then runs the setup themselves in a terminal so they can paste it hidden: the same setup "
+                f"command without -Auto / --auto. Never ask for the key in chat")
+elif not key:
     need.append(f"elevenlabs-key: no ElevenLabs key - the user saves the {SETTINGS} file they were sent (e.g. the email "
                 "attachment) to their Downloads folder, then run setup again")
 
@@ -227,7 +253,7 @@ for d in [x for x in (projects, output) if x]:
     except OSError as e: need.append(f"folder: can't create {d} ({e})")
 
 cfg = {"footage_dir": footage, "projects_dir": projects, "output_dir": output, "music_dir": music, "sfx_dir": sfx,
-       "brand_file": brand, "elevenlabs_api_key": key}
+       "brand_file": brand, "elevenlabs_api_key": key, "local": LOCAL}
 if footage or not AUTO:   # never write a config without footage in auto mode - the setup check would think it's done
     json.dump(cfg, open(CFG_F, "w", encoding="utf-8"), indent=2)
     for f in (CFG_F, local_settings):

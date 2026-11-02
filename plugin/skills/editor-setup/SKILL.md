@@ -17,6 +17,17 @@ plain, and never show them paths, JSON or terminal output unless something break
   folder in Google Drive; the setup finds those too.)
 - Where finished videos go is asked later, on their first video (the `video-edit` skill).
 
+## No Google Drive (footage in a folder on this computer)
+For someone editing their own content (e.g. a creator with clips on their laptop) who doesn't use Google Drive. Use
+this when they say they don't use Drive, or their footage is just on their computer. Run setup with `-Local` (Windows)
+or `--local` (Mac) and `-Footage` / `--footage` set to the folder's **name** if it's in Videos / Movies / Desktop /
+Documents / Downloads / Pictures, otherwise its **full path** (they can drag the folder into the chat). Nothing about
+Google Drive is installed or asked. With no `brand.md`, setup makes a blank **"My editing style"** file that the AI
+fills in as they say what they like. The choice is remembered, so later runs don't need the flag.
+- `NEED: elevenlabs-key` (local) - they make a free account at elevenlabs.io, create an API key (Developers -> API
+  keys), then run the setup themselves in a terminal (the same command without `-Auto` / `--auto`), which asks for
+  the key with typing hidden. If they were sent an `ai-video-editor.json`, saving it to Downloads works too.
+
 ## Steps
 1. **Check first.** Windows: `python "<this skill's folder>/doctor.py"`. Mac: only if `~/.ai-video-editor/bin/python3`
    exists, run `~/.ai-video-editor/bin/python3 "<this skill's folder>/doctor.py"` (never the system `python3` - on a

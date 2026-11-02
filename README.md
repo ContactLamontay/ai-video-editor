@@ -30,6 +30,10 @@ first), then ask the user to run the installer themselves in a terminal, because
 **Both:** the setup needs the two files the user was sent (`brand.md` and `ai-video-editor.json`, with the ElevenLabs
 key) saved in Downloads, and the name of their footage folder in Google Drive. Never ask for the key in chat.
 
+**No Google Drive** (e.g. a creator editing their own clips): footage can be a plain folder on their computer - run
+the setup with `-Local` / `--local` (the editor-setup skill explains it; the interactive setup asks). No brand file
+needed: setup makes a blank "My editing style" file the AI fills in as they go.
+
 Editor guides: [Claude](EDITOR-GUIDE-CLAUDE.md) · [Codex](EDITOR-GUIDE-CODEX.md)
 
 ---

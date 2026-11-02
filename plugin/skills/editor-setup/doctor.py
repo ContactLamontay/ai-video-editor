@@ -33,7 +33,8 @@ if cfg:
     line(bool(cfg.get("elevenlabs_api_key") or os.environ.get("ELEVENLABS_API_KEY")), "ElevenLabs key set", "re-run setup and paste the key")
     fd = cfg.get("footage_dir", "")
     line(bool(fd) and os.path.isdir(fd), f"footage library {fd or '(not set)'}",
-         "install Google Drive for Desktop, sign in with the company account, then re-run setup")
+         "local setup: re-run setup with the folder's full path" if cfg.get("local")
+         else "install Google Drive for Desktop, sign in with the company account, then re-run setup")
     p = cfg.get("projects_dir", ""); line(bool(p) and os.path.isdir(p), f"projects_dir {p or '(not set)'}", "re-run setup")
     p = cfg.get("output_dir", "")
     line(bool(p) and os.path.isdir(p), f"finished videos folder {p or '(not chosen yet)'}",

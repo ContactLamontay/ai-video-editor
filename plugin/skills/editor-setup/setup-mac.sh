@@ -5,12 +5,13 @@
 #   bash "<this file>"          asks a few questions (defaults filled in)
 #   bash "<this file>" --auto   asks nothing - the AI runs this one
 #   bash "<this file>" --auto --footage "Bracelet"   the footage folder's name in Google Drive (asked once by the AI)
+#   ... --local [--footage "<path or name>"]         no Google Drive: footage is a folder on this computer (remembered)
 # Finds the footage folder by name in Google Drive, picks up brand.md + ai-video-editor.json (ElevenLabs key) from
 # Downloads (e.g. an email attachment), checks everything. In --auto mode, "NEED: ..." lines say what only the user can do (install Google
 # Drive with their password, sign in); exit code 2. Safe to re-run: it skips what's already done.
 HERE="$(cd "$(dirname "$0")" && pwd)"
-AUTO=""; FOOTAGE=""
-while [ $# -gt 0 ]; do case "$1" in --auto) AUTO="--auto" ;; --footage) FOOTAGE="$2"; shift ;; esac; shift; done
+AUTO=""; FOOTAGE=""; LOCAL=""
+while [ $# -gt 0 ]; do case "$1" in --auto) AUTO="--auto" ;; --local) LOCAL="--local" ;; --footage) FOOTAGE="$2"; shift ;; esac; shift; done
 BASE="$HOME/.ai-video-editor"; BIN="$BASE/bin"; VENV="$BASE/venv"; DL="$BASE/downloads"
 mkdir -p "$BIN" "$DL"
 export PATH="$BIN:$HOME/.local/bin:$PATH"
@@ -19,6 +20,12 @@ need() { echo "NEED: $1"; exit 2; }
 fetch() { curl -fsSL --retry 3 --retry-delay 2 -o "$2" "$1"; }
 
 printf "\033[32mAI Video Editor setup\033[0m\n"
+CFG="$BASE/config.json"
+[ -z "$LOCAL" ] && grep -q '"local": true' "$CFG" 2>/dev/null && LOCAL="--local"
+if [ -z "$LOCAL" ] && [ -z "$AUTO" ] && [ ! -f "$CFG" ]; then
+  read -r -p "Where is your footage? 1 = Google Drive, 2 = a folder on this computer [1]: " R
+  [ "$R" = 2 ] && LOCAL="--local"
+fi
 case "$(uname -m)" in arm64) ARCH=arm64 ;; *) ARCH=amd64 ;; esac
 
 say "Python"
@@ -66,7 +73,9 @@ done
 
 say "Google Drive"
 mounted() { ls -d "$HOME"/Library/CloudStorage/GoogleDrive-*/ >/dev/null 2>&1; }
-if ! mounted; then
+if [ -n "$LOCAL" ]; then
+  echo "Skipped - footage is in a folder on this computer"
+elif ! mounted; then
   if [ ! -d "/Applications/Google Drive.app" ]; then
     echo "Downloading Google Drive for Desktop (~140 MB)..."
     fetch "https://dl.google.com/drive-file-stream/GoogleDrive.dmg" "$DL/GoogleDrive.dmg" \
@@ -89,11 +98,11 @@ if ! mounted; then
     read -r -p "Sign in to Google Drive with your company Google account, then press Enter when it shows up in Finder... "
   fi
 fi
-mounted && echo "Google Drive OK"
+[ -z "$LOCAL" ] && mounted && echo "Google Drive OK"
 rm -f "$DL/GoogleDrive.dmg"
 
 say "Settings"
-if [ -n "$FOOTAGE" ]; then "$PY" "$HERE/configure.py" $AUTO --footage "$FOOTAGE"; else "$PY" "$HERE/configure.py" $AUTO; fi; CFG_EXIT=$?
+if [ -n "$FOOTAGE" ]; then "$PY" "$HERE/configure.py" $AUTO $LOCAL --footage "$FOOTAGE"; else "$PY" "$HERE/configure.py" $AUTO $LOCAL; fi; CFG_EXIT=$?
 
 say "Checking everything"
 if "$PY" "$HERE/doctor.py" && [ "$CFG_EXIT" = 0 ]; then

@@ -6,7 +6,8 @@ description: Edit the brand's videos end to end from raw footage - 9:16 short-fo
 # Video edit
 
 Settings live in `~/.ai-video-editor/config.json` (read it first; never print `elevenlabs_api_key`). Footage is in the
-shared Google Drive library (`footage_dir`, mounted on this computer by Google Drive for Desktop). Each edit gets its own
+shared Google Drive library (`footage_dir`, mounted on this computer by Google Drive for Desktop), or, when the config
+has `"local": true`, in a plain folder on this computer (no Google Drive - ignore the Drive notes below). Each edit gets its own
 local **project folder** in `projects_dir`; the clips it needs are copied in from Drive, so nothing heavy is written back
 to the shared Drive. Finals go to `output_dir`. Music is in `music_dir`, SFX in `sfx_dir`.
 
@@ -16,6 +17,9 @@ to the shared Drive. Finals go to `output_dir`. Music is in `music_dir`, SFX in 
 Before cutting anything, read the **brand file** (`brand_file` in the config - the brand's rules: product facts,
 approved claims, tone, ad structure, CTA, colours) and `references/style.md` (how the edit should feel). The brand file
 wins where they disagree. If `brand_file` is empty, say so and ask the editor before making claims about the product.
+If it is a personal **"My editing style"** file (made blank by setup for creators editing their own content), use
+style.md for anything left blank, ask about the blanks that matter for this video, and whenever the editor says what
+they like or don't like, add it to the right section of that file (one short line) and tell them you did.
 Worked example: `references/example_edl_short.py`.
 
 ## Running the scripts
@@ -40,7 +44,7 @@ Tell the editor what you're doing and roughly how long each wait is.
 
 **First video on this computer: ask where finished videos go.** If `output_dir` in the config is empty (or the folder
 no longer exists), ask once, in plain words, together with your first question about the video: "Where should I put
-finished videos?" Suggest a folder in their Google Drive next to the footage (e.g. a `Finished videos` folder inside
+finished videos?" Local setup: suggest a `Finished videos` folder next to the footage. Otherwise suggest a folder in their Google Drive next to the footage (e.g. a `Finished videos` folder inside
 `footage_dir`, so the whole team sees them), or a folder on this computer. Save their answer with
 `python settings.py output_dir "<folder>"` (a folder name alone is created inside `footage_dir`) and confirm in one
 line. Never ask again once it's set; they can change it any time by asking ("put finished videos in ...").

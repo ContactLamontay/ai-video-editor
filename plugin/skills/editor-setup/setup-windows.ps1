@@ -2,11 +2,12 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File "<this file>"          asks a few questions (defaults filled in)
 #   powershell -NoProfile -ExecutionPolicy Bypass -File "<this file>" -Auto    asks nothing - the AI runs this one
 #   ... -Auto -Footage "Bracelet"     the footage folder's name in Google Drive (asked once by the AI)
+#   ... -Local [-Footage "<path or name>"]   no Google Drive: footage is a folder on this computer (remembered)
 # Installs Python, FFmpeg and Google Drive for Desktop if missing, finds the footage folder by name in Google Drive,
 # picks up brand.md + ai-video-editor.json (ElevenLabs key) from Downloads (e.g. an email attachment), checks everything.
 # In -Auto mode, "NEED: ..." lines say what only the user can do (e.g. sign in to Google Drive); exit code 2.
 # Safe to re-run: it skips what's already done and keeps previous settings.
-param([switch]$Auto, [string]$Footage = "")
+param([switch]$Auto, [switch]$Local, [string]$Footage = "")
 $ErrorActionPreference = "Continue"   # not Stop: in Windows PowerShell, pip/winget writing to stderr would abort the script
 $ProgressPreference = "SilentlyContinue"
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -45,6 +46,14 @@ function DriveExe {
 }
 
 Write-Host "AI Video Editor setup" -ForegroundColor Green
+$CfgFile = Join-Path $HOME ".ai-video-editor\config.json"
+if (-not $Local -and (Test-Path $CfgFile)) {
+    try { $Local = [bool]((Get-Content $CfgFile -Raw | ConvertFrom-Json).local) } catch {}
+}
+if (-not $Local -and -not $Auto -and -not (Test-Path $CfgFile)) {
+    $r = Read-Host "Where is your footage? 1 = Google Drive, 2 = a folder on this computer [1]"
+    if ($r -eq "2") { $Local = $true }
+}
 if (-not (Have "winget")) {
     Write-Host "NEED: winget: install 'App Installer' from the Microsoft Store (https://apps.microsoft.com/detail/9NBLGGH4NNS1), then run setup again"
     exit 2
@@ -76,7 +85,8 @@ Write-Host "Optional: auto-framing for vertical videos (rembg, ~200 MB)..."
 if ($LASTEXITCODE -ne 0) { Write-Host "rembg skipped (vertical crops will centre instead)." }
 
 Say "Google Drive"
-if (-not (DriveMounted)) {
+if ($Local) { Write-Host "Skipped - footage is in a folder on this computer" }
+if (-not $Local -and -not (DriveMounted)) {
     if (-not (DriveExe)) {
         Write-Host "Installing Google Drive for Desktop (Windows may ask for permission)..."
         WingetInstall "Google.GoogleDrive" @()
@@ -94,10 +104,10 @@ if (-not (DriveMounted)) {
         Read-Host "When the G: drive shows up in File Explorer, press Enter"
     }
 }
-if (DriveMounted) { Write-Host "Google Drive OK" }
+if (-not $Local -and (DriveMounted)) { Write-Host "Google Drive OK" }
 
 Say "Settings"
-$cfgArgs = @((Join-Path $Here "configure.py")); if ($Auto) { $cfgArgs += "--auto" }; if ($Footage) { $cfgArgs += @("--footage", $Footage) }
+$cfgArgs = @((Join-Path $Here "configure.py")); if ($Auto) { $cfgArgs += "--auto" }; if ($Footage) { $cfgArgs += @("--footage", $Footage) }; if ($Local) { $cfgArgs += "--local" }
 & $py @cfgArgs
 $cfgExit = $LASTEXITCODE
 
